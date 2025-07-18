@@ -1,68 +1,68 @@
-from flask import Flask, render_template, request, redirect, flash
-import pandas as pd
+
+from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
+import pandas as pd
 import os
 
 app = Flask(__name__)
-app.secret_key = 'secret123'
-DB_NAME = 'students.db'
 
+# قاعدة البيانات
+DATABASE = 'students.db'
+
+# الصفحة الرئيسية
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/admin_login')
-def admin_login():
-    return render_template('admin_login.html')
-
-@app.route('/upload_excel', methods=['POST'])
-def upload_excel():
-    if 'excel_file' not in request.files:
-        flash("يرجى اختيار ملف Excel")
-        return redirect('/admin_login')
-
-    file = request.files['excel_file']
-    if file.filename == '':
-        flash("اسم الملف غير صالح")
-        return redirect('/admin_login')
-
-    df = pd.read_excel(file)
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("DROP TABLE IF EXISTS students")
-    columns = df.columns.tolist()
-    sql_cols = [f'"{col}" TEXT' for col in columns]
-    c.execute(f'CREATE TABLE students ({", ".join(sql_cols)})')
-    for _, row in df.iterrows():
-        values = tuple(str(val) for val in row)
-        placeholders = ','.join('?' * len(values))
-        c.execute(f'INSERT INTO students VALUES ({placeholders})', values)
-    conn.commit()
-    conn.close()
-    flash("تم تحميل البيانات بنجاح")
-    return redirect('/admin_login')
-
-@app.route('/student_login', methods=['GET', 'POST'])
+# صفحة دخول الطالب
+@app.route('/student_login', methods=['POST'])
 def student_login():
-    if request.method == 'GET':
-        return render_template('student_login.html')
-    else:
-        username = request.form['username']
-        password = request.form['password']
-        conn = sqlite3.connect(DB_NAME)
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        query = 'SELECT * FROM students WHERE "اسم المستخدم"=? AND "كلمة المرور"=?'
-        c.execute(query, (username, password))
-        row = c.fetchone()
-        conn.close()
-        if row:
-            student = dict(row)
-            grades = {k: v for k, v in student.items() if k not in ["الاسم", "اسم المستخدم", "كلمة المرور"]}
-            return render_template("student_result.html", student=student, grades=grades)
-        else:
-            flash("بيانات الدخول غير صحيحة")
-            return redirect('/student_login')
+    username = request.form['username']
+    password = request.form['password']
 
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+
+    query = 'SELECT * FROM students WHERE "اسم المستخدم"=? AND "كلمة المرور"=?'
+    cursor.execute(query, (username, password))
+    student = cursor.fetchone()
+    conn.close()
+
+    if student:
+        name = student[0]
+        subjects = student[3:]
+        subject_names = get_subject_names()
+        return render_template('student_result.html', name=name, subjects=zip(subject_names, subjects))
+    else:
+        return render_template('index.html', error='اسم المستخدم أو كلمة المرور غير صحيح')
+
+# رفع ملف Excel وتحديث قاعدة البيانات
+@app.route('/upload', methods=['POST'])
+def upload():
+    file = request.files['file']
+    if file:
+        df = pd.read_excel(file)
+        conn = sqlite3.connect(DATABASE)
+        df.to_sql('students', conn, if_exists='replace', index=False)
+        conn.close()
+        return render_template('admin.html', message='تم تحميل البيانات بنجاح')
+    return render_template('admin.html', message='فشل في تحميل الملف')
+
+# صفحة دخول المشرف
+@app.route('/admin')
+def admin():
+    return render_template('admin.html')
+
+# دالة للحصول على أسماء المواد من قاعدة البيانات
+def get_subject_names():
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('PRAGMA table_info(students)')
+    columns = cursor.fetchall()
+    conn.close()
+    return [col[1] for col in columns[3:]]
+
+# ✅ التعديل هنا للتوافق مع Railway أو Render
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host='0.0.0.0', port=port)
