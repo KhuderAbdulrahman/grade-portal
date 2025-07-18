@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>نتائج الطالب</title>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #fff;
+            padding: 50px;
+            text-align: center;
+            position: relative;
+            min-height: 1000px;
+        }
+        .logo {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+        }
+        .signature {
+            position: absolute;
+            bottom: 40px;
+            left: 50px;
+            text-align: left;
+            font-size: 16px;
+            color: #000;
+        }
+        .spacer-top {
+            margin-top: 90px;
+        }
+        .spacer-bottom {
+            height: 120px;
+        }
+        table {
+            margin: 30px auto;
+            border-collapse: collapse;
+            width: 60%;
+        }
+        th, td {
+            border: 1px solid #999;
+            padding: 12px;
+            font-size: 18px;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        h2, h3 {
+            color: #2c3e50;
+            margin: 5px;
+        }
+        .button-container {
+            margin-top: 30px;
+        }
+        .btn {
+            font-size: 16px;
+            padding: 10px 25px;
+            margin: 10px;
+            border: none;
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #27ae60;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <div id="result-content">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="شعار القسم" class="logo">
+        <div class="spacer-top"></div>
+        <h2>النتائج الامتحانية لقسم الجغرافيا</h2>
+        <h3>اسم الطالب: {{ student['الاسم'] }}</h3>
+        <table>
+            <tr><th>المادة</th><th>الدرجة</th></tr>
+            {% for subject, grade in grades.items() %}
+            <tr><td>{{ subject }}</td><td>{{ grade }}</td></tr>
+            {% endfor %}
+        </table>
+        <div class="spacer-bottom"></div>
+        <div class="signature">
+            <div>أ.د. صهيب حسن خضر</div>
+            <div>رئيس قسم الجغرافيا</div>
+        </div>
+    </div>
+    <div class="button-container">
+        <button class="btn" onclick="window.print()">🖨️ طباعة النتيجة</button>
+        <button class="btn" onclick="saveAsPDF()">📄 حفظ النتيجة PDF</button>
+        <a href="/"><button class="btn">الصفحة الرئيسية</button></a>
+    </div>
+    <script>
+        function saveAsPDF() {
+            const element = document.getElementById('result-content');
+            const opt = {
+                margin: 0.5,
+                filename: 'نتيجة_{{ student["الاسم"] }}.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(element).set(opt).save();
+        }
+    </script>
+</body>
+</html>
